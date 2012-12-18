@@ -279,7 +279,7 @@ type NFAStates = List[Int]
 // type DPatTable = Map[(Int,Char), (Int, NFAStates, Map[Int, List[Int => Binder => Binder]])]
 type DPatTable = IntMap[(Int, NFAStates, Map[Int, List[Int => Binder => Binder]])]
 
-def mhash(p:(Int,Char)):Int = p match {
+@inline def mhash(p:(Int,Char)):Int = p match {
   case (i,c) => i + c.toInt * 256
 }
 
@@ -373,18 +373,19 @@ def buildDPatTable(init:Pat):(DPatTable,List[Int]) = {
 }
 
 
-def computeBinders(currNfaStateBinders:List[(Int,Int,Binder)])(fDict:Map[Int,List[Int=>Binder=>Binder]])(cnt:Int):List[Binder] = {
-  def k(a:List[Binder])(imb:(Int,Int,Binder)):List[Binder] = imb match {
-    case (i,m,b) => fDict.get(m) match {
+def computeBinders(currNfaStateBinders:List[(Int,Binder)])(fDict:Map[Int,List[Int=>Binder=>Binder]])(cnt:Int):List[Binder] = {
+  def k(a:List[Binder])(imb:(Int,Binder)):List[Binder] = imb match {
+    case (m,b) => fDict.get(m) match {
       case None => a
       case Some(gs) => a ++ (gs.map(g => g(cnt)(b)))
     }
   }
-  def cm(bs:List[(Int,Int,Binder)]):List[Binder] = ((List():List[Binder]) /: bs)((x,y) => k(x)(y))
+  def cm(bs:List[(Int,Binder)]):List[Binder] = ((List():List[Binder]) /: bs)((x,y) => k(x)(y))
   cm(currNfaStateBinders)
 }
 
 // @tailrec
+/*
 def patMatches(cnt:Int)(dStateTable:DPatTable)(wp:String)(currNfaStateBinders:List[(Int,Int,Binder)]) : List[(Int,Int,Binder)] = currNfaStateBinders  match 
 {
   case Nil => Nil
@@ -407,6 +408,32 @@ def patMatches(cnt:Int)(dStateTable:DPatTable)(wp:String)(currNfaStateBinders:Li
       }
     }
 } 
+*/
+
+
+@tailrec
+def patMatches(cnt:Int)(dStateTable:DPatTable)(wp:String)(currDfaNfaStateBinders:(Int,List[(Int,Binder)])) : (Int,List[(Int,Binder)]) = { 
+  currDfaNfaStateBinders  match 
+  {
+    case (i,Nil) => (i,Nil)
+      case (i,currNfaStateBinders)   => 
+	if (wp.length == 0) { currDfaNfaStateBinders } 
+	else {
+	  val l = wp.toList.head
+	  val w = wp.substring(1)
+	  val k = mhash((i,l))
+	  dStateTable.get(k) match {
+	    case None => (i,List()) // "key missing" which mans some letter exists in wp but not in pattern p
+	    case Some((j,next_nfaStates,fDict)) =>
+	      val binders = computeBinders(currNfaStateBinders)(fDict)(cnt)
+	      val nextDfaNfaStateBinders = (j,next_nfaStates.zip(binders))
+	      val cntp = cnt + 1
+	    patMatches(cntp)(dStateTable)(w)(nextDfaNfaStateBinders)
+	  }
+	}
+  }
+} 
+
 
 type Range = (Int,Int)
 
@@ -444,8 +471,9 @@ def patMatch(p:Pat)(w:String):List[Env] = {
   val (dStateTable,sfinal) = buildDPatTable(p)
   val s = 0
   val b = toBinder(p)
-  val allbindersp = patMatches(0)(dStateTable)(w)(List((0,s,b)))
-  val allbinders = for (x <- allbindersp; val (_,i,b) = x; if sfinal.contains(i)) yield b
+  val e = (s,List((s,b)))
+  val (_,allbindersp) = patMatches(0)(dStateTable)(w)(e)
+  val allbinders = for (x <- allbindersp; val (i,b) = x; if sfinal.contains(i)) yield b
   allbinders.map(b => collectPatMatchFromBinder(w)(b))
 }
 
@@ -484,9 +512,9 @@ def compilePat(p:Pat):(DPatTable,List[Int],Binder) = {
 def compiledPatMatch(tlb:(DPatTable,List[Int],Binder))(w:String):List[Env] = {
   val (dStateTable,sfinal,b) = tlb
   val s = 0
-  val e = List((0,0,b))
-  val allbindersp = patMatches(0)(dStateTable)(w)(e)
-  val allbinders = for (x <- allbindersp; val (_,i,b) = x; if sfinal.contains(i)) yield b
+  val e = (s,List((s,b)))
+  val (_,allbindersp) = patMatches(0)(dStateTable)(w)(e)
+  val allbinders = for (x <- allbindersp; val (i,b) = x; if sfinal.contains(i)) yield b
   allbinders.map(b => collectPatMatchFromBinder(w)(b))
 }
 
