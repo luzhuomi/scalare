@@ -17,7 +17,7 @@ case class Label(c: Char) extends RE
 
 case class Choice(r1: RE, r2: RE) extends RE 
 
-case class Seq(r1: RE, r2: RE) extends RE
+case class Pair(r1: RE, r2: RE) extends RE
 case class Star(r:RE) extends RE
 
 // check whether \epsilon \in r
@@ -26,7 +26,7 @@ def isEmpty(r:RE) : Boolean = r match {
   case Empty         => true
   case Label(_)      => false
   case Choice(r1,r2) => isEmpty(r1) || isEmpty(r2)
-  case Seq(r1,r2)    => isEmpty(r1) && isEmpty(r2)
+  case Pair(r1,r2)   => isEmpty(r1) && isEmpty(r2)
   case Star(r) 	     => true
 }
 
@@ -36,16 +36,16 @@ def pderiv (c:Char) (r:RE) : List[RE] = r match {
   case Empty => List()
   case Label(c_) => if (c == c_) List(Empty) else List()
   case Choice(r1,r2) => pderiv(c)(r1) ++ pderiv(c)(r2)
-  case Seq(r1,r2) => 
+  case Pair(r1,r2) => 
     if (isEmpty(r1)) {
       (for (r1_ <- pderiv(c)(r1))
-      yield Seq(r1_,r2) ) ++ (pderiv(c)(r2))
+      yield Pair(r1_,r2) ) ++ (pderiv(c)(r2))
     } else {
       (for (r1_ <- pderiv(c)(r1))
-      yield Seq(r1_,r2) ) 
+      yield Pair(r1_,r2) ) 
     }
   case Star(r) => 
-    for (r_ <- pderiv(c)(r)) yield Seq(r_,Star(r))
+    for (r_ <- pderiv(c)(r)) yield Pair(r_,Star(r))
 }
 
 // partial derivative for list of RE
@@ -66,7 +66,7 @@ def sigmaRE(r:RE):Set[Char] = r match {
   case Empty         => Set()
   case Label(c)      => Set(c)
   case Choice(r1,r2) => sigmaRE(r1) ++ sigmaRE(r2)
-  case Seq(r1,r2)    => sigmaRE(r1) ++ sigmaRE(r2)
+  case Pair(r1,r2)   => sigmaRE(r1) ++ sigmaRE(r2)
   case Star(r)       => sigmaRE(r)
 }
 
@@ -90,7 +90,7 @@ case class PEmpty(p:Pat) extends Pat
 def strip(p : Pat) : RE = p match {
   case PVar(_, _, p) => strip(p)
   case PRE(r) => r
-  case PPair(p1,p2) => Seq(strip(p1), strip(p2))
+  case PPair(p1,p2) => Pair(strip(p1), strip(p2))
   case PStar(p) => Star(strip(p))
   case PChoice(p1,p2) => Choice(strip(p1),strip(p2))
   case PEmpty(_) => Empty
@@ -384,31 +384,6 @@ def computeBinders(currNfaStateBinders:List[(Int,Binder)])(fDict:Map[Int,List[In
   cm(currNfaStateBinders)
 }
 
-// @tailrec
-/*
-def patMatches(cnt:Int)(dStateTable:DPatTable)(wp:String)(currNfaStateBinders:List[(Int,Int,Binder)]) : List[(Int,Int,Binder)] = currNfaStateBinders  match 
-{
-  case Nil => Nil
-  case _   => 
-    if (wp.length == 0) { currNfaStateBinders } 
-    else {
-      val l = wp.toList.head
-      val w = wp.substring(1)
-      val (i,_,_) = currNfaStateBinders.head
-      val k       = mhash((i,l))
-      dStateTable.get(k) match {
-	case None => List() // "key missing" which mans some letter exists in wp but not in pattern p
-	case Some((j,next_nfaStates,fDict)) =>
-	  val binders = computeBinders(currNfaStateBinders)(fDict)(cnt)
-	  val nextNfaStateBinders = next_nfaStates.zip(binders).map( 
-	      xy => xy match { case (x,y) => (j,x,y) }
-	    )
-	  val cntp = cnt + 1
-	  patMatches(cntp)(dStateTable)(w)(nextNfaStateBinders)
-      }
-    }
-} 
-*/
 
 
 @tailrec
@@ -493,9 +468,9 @@ def greedyPatMatch(p:Pat)(w:String):Option[Env] = {
 
 // our favorite example (x :: (A|AB), y :: (BAA|A), z :: (AC|C))
 val p = {
-  val px = PVar(1,List(),PRE(Choice(Label('A'),Seq(Label('A'),Label('B')))))
-  val py = PVar(2,List(),PRE(Choice(Seq(Label('B'),Seq(Label('A'),Label('A'))), Label('A'))))
-  val pz = PVar(3,List(),PRE(Choice(Seq(Label('A'),Label('C')), Label('C'))))
+  val px = PVar(1,List(),PRE(Choice(Label('A'),Pair(Label('A'),Label('B')))))
+  val py = PVar(2,List(),PRE(Choice(Pair(Label('B'),Pair(Label('A'),Label('A'))), Label('A'))))
+  val pz = PVar(3,List(),PRE(Choice(Pair(Label('A'),Label('C')), Label('C'))))
   PPair(px, PPair(py, pz))
 }
 
@@ -528,25 +503,39 @@ def charSet(cs:List[Char]):RE = cs.toList match {
   case x::xs => ((Label(x):RE) /: xs)( (r,c) => Choice(r,Label(c)) )
 }
 
-val dot = charSet((for (i <- 0 to 255) yield i.toChar).toList)
 
-val digit = charSet( (for (i <- 48 to 57) yield i.toChar).toList)
+def charRangeList(l:Int)(u:Int):List[Char] = {
+  (for (i <- l to u) yield i.toChar).toList
+  // ((l to u) map (i => i.toChar)).toList
+  /*
+  var lst:List[Char] = Nil
+  var i = u
+  while (i >= u) {
+    lst = (i.toChar)::lst
+    i= i-1
+  }
+  lst */
+}
 
-val char  = charSet( ((for (i <- 65 to 90) yield i.toChar) ++ (for (i <- 97 to 122) yield i.toChar)).toList)
+val dot = charSet(charRangeList(0)(255)) 
 
-def repeatSeq(r:RE)(n:Int):RE = n match {
+val digit = charSet(charRangeList(48)(57)) 
+
+val char  = charSet(charRangeList(65)(90) ++ charRangeList(97)(122)) 
+
+def repeatPair(r:RE)(n:Int):RE = n match {
   case 0 => Phi
   case 1 => r
-  case _ => Seq(r,(repeatSeq(r)(n-1)))
+  case _ => Pair(r,(repeatPair(r)(n-1)))
 }
 
 
 val usPat = {
   val pSpace = PVar (-1, List(), PRE(Label(' ')))
   val p1 = PVar (1,List(), PRE(Star(dot)))
-  val p2 = PVar (2,List(), PRE(Seq(char,char)))
-  val p3 = PVar (3,List(), PRE(repeatSeq(digit)(5)))
-  val p4 = PVar (4,List(), PRE(Choice(Empty, Seq(Label('-'), repeatSeq(digit)(4)))))
+  val p2 = PVar (2,List(), PRE(Pair(char,char)))
+  val p3 = PVar (3,List(), PRE(repeatPair(digit)(5)))
+  val p4 = PVar (4,List(), PRE(Choice(Empty, Pair(Label('-'), repeatPair(digit)(4)))))
   PPair(p1,PPair(pSpace,PPair(p2,PPair(pSpace, PPair(p3,p4)))))
 }
 
@@ -560,8 +549,13 @@ object Main {
   def main(args:Array[String]) = {
     val lines = scala.io.Source.fromFile(args(0), "utf-8").getLines
     val cp = compilePat(usPat)
+    /*
     for (l <- lines) {
       println(compiledGreedyPatMatch(cp)(l))
+    }
+    */
+    while (lines.hasNext) {
+      println(compiledGreedyPatMatch(cp)(lines.next()))
     }
   }
 }
