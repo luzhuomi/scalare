@@ -1,0 +1,101 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>scalare.regex.pderiv</groupId>
+    <artifactId>scalare_2.9.2</artifactId>
+    <packaging>jar</packaging>
+    <description>ScalaRE</description>
+    <version>1.0-SNAPSHOT</version>
+    <name>ScalaRE</name>
+    <organization>
+        <name>scalare.regex.pderiv</name>
+    </organization>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.9.2</version>
+        </dependency>
+    </dependencies>
+
+
+    <!-- manual -->
+    <repositories>
+        <repository>
+            <id>scala-tools.org</id>
+            <name>Scala-tools Maven2 Repository</name>
+            <url>http://scala-tools.org/repo-releases</url>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>scala-tools.org</id>
+            <name>Scala-tools Maven2 Repository</name>
+            <url>http://scala-tools.org/repo-releases</url>
+        </pluginRepository>
+    </pluginRepositories>
+    <build>
+        <plugins>
+	    <!-- Scala compiler -->
+            <plugin>
+                <groupId>org.scala-tools</groupId>
+                <artifactId>maven-scala-plugin</artifactId>
+		<version>2.15.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+			<configuration>
+			   <includes>
+			    <include>**/*.scala</include>
+			  </includes>
+			</configuration> 
+                    </execution>
+                </executions>
+            </plugin> 
+	    <plugin>
+	      <groupId>org.apache.maven.plugins</groupId>
+	      <artifactId>maven-jar-plugin</artifactId>
+	      <version>2.3.1</version>
+	      <configuration>
+		<excludes>
+		  <exclude>**/*.xml</exclude>
+		</excludes>
+		<archive>
+		  <manifest>
+		    <mainClass>scalare.regex.pderiv.Main</mainClass>
+		  </manifest>
+		</archive>
+	      </configuration>
+	    </plugin>
+	    <!-- the jar plugin that include all scala lang library with dependency
+	    <plugin>
+	      <groupId>org.apache.maven.plugins</groupId>
+	      <artifactId>maven-assembly-plugin</artifactId>
+	      <version>2.2</version>
+	      <configuration>
+		<descriptorRefs>
+		  <descriptorRef>jar-with-dependencies</descriptorRef>
+		</descriptorRefs>
+		<archive>
+		  <manifest>
+		    <mainClass>scalare.regex.pderiv.Main</mainClass>
+		  </manifest>
+		</archive>
+	      </configuration>
+	      <executions>
+		<execution>
+		  <phase>package</phase>
+		  <goals>
+		    <goal>single</goal>
+		  </goals> 
+		</execution> 
+	      </executions> 
+	    </plugin>
+	    -->
+        </plugins>
+    </build>
+
+
+</project>
