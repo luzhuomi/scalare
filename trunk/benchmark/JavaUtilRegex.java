@@ -18,8 +18,11 @@ public class JavaUtilRegex {
 		try {
 		    Matcher matcher = pattern.matcher(strLine);
 		    // Matcher matcher = pattern.matcher("Mountain View CA 90410");
-		    while (matcher.find()) {
+		    if (matcher.find()) {
 			System.out.println(matcher.group());
+			// System.out.println("matched");
+		    } else {
+			System.out.println("not matched.");
 		    }
 		} catch (IllegalStateException e) {
 		    System.out.println("not matched.");

@@ -19,7 +19,7 @@
     </dependencies>
 
 
-    <!-- manual -->
+    <!-- manually included -->
     <repositories>
         <repository>
             <id>scala-tools.org</id>
@@ -36,7 +36,7 @@
     </pluginRepositories>
     <build>
         <plugins>
-	    <!-- Scala compiler -->
+	    <!-- Scala compiler plugin -->
             <plugin>
                 <groupId>org.scala-tools</groupId>
                 <artifactId>maven-scala-plugin</artifactId>
@@ -47,6 +47,9 @@
                             <goal>compile</goal>
                         </goals>
 			<configuration>
+			  <args>
+			    <arg>-optimise</arg>
+			  </args>
 			   <includes>
 			    <include>**/*.scala</include>
 			  </includes>

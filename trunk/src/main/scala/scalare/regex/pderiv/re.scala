@@ -168,7 +168,7 @@ def updateByIndex(x:Int)(pos:Int)(b:Binder) : Binder = b match {
 	case (b,e)::rs => 
 	  if (pos == (e + 1)) (b,pos)::rs
 	  else (if (pos > (e + 1)) (pos,pos)::l 
-	       else sys.error("updateByIndex: this is not possible."))
+	       else sys.error("updateByIndex: this is not possible.")) 
 	case Nil =>
 	  (pos,pos)::l
       }
@@ -186,7 +186,7 @@ def pdPat0(l:(Char,Int)) (p:Pat) : List[(Pat,Int => Binder => Binder)] = l match
       case PVar(v, r, p) => 
 	val pdfs = pdPat0(l)(p)
         def g(j:Int):Binder=>Binder = (b:Binder) => updateByIndex(v)(j)(b)
-	for ((pd,f) <- pdfs) yield (PVar(v, r, pd), (i:Int) => ((b:Binder) => g(i)(f(i)(b)))) // \i -> (f i) . (g i)
+	for ((pd,f) <- pdfs) yield (PVar(v, r, pd), (i:Int) => ((b:Binder) => f(i)(g(i)(b)))) // \i -> (f i) . (g i)
       case PRE(r) => 
 	val pds = pderiv(c)(r)
         for (pd <- pds) yield (PRE(pd), ((i:Int) => (b:Binder) => b))
@@ -276,14 +276,53 @@ def buildPdPatTable(init:Pat):(PdPatTable, List[Int]) = {
 
 type NFAStates = List[Int]
 
-// type DPatTable = Map[(Int,Char), (Int, NFAStates, Map[Int, List[Int => Binder => Binder]])]
-type DPatTable = IntMap[(Int, NFAStates, Map[Int, List[Int => Binder => Binder]])]
+/*
+type DPatTable = Map[(Int,Char), (Int, NFAStates, Map[Int, List[Int => Binder => Binder]])]
+type DPKey = (Int,Char)
+@inline def mhash(p:(Int,Char)):DPKey = p
+@inline def emptyDPT:DPatTable = Map()
+@inline def getDPT(d:DPatTable)(k:DPKey):Option[(Int, NFAStates, Map[Int, List[Int => Binder => Binder]])] = { 
+  d.get(k) 
+}
+@inline def updateDPT(d:DPatTable)(k:DPKey)(v:(Int, NFAStates, Map[Int, List[Int => Binder => Binder]])):DPatTable = {
+  d.updated(k, v)
+}
+*/
 
-@inline def mhash(p:(Int,Char)):Int = p match {
+
+type DPatTable = IntMap[(Int, NFAStates, Map[Int, List[Int => Binder => Binder]])]
+type DPKey = Int
+@inline def mhash(p:(Int,Char)):DPKey = p match {
   case (i,c) => i + c.toInt * 256
 }
+@inline def emptyDPT:DPatTable = IntMap()
+@inline def getDPT(d:DPatTable)(k:DPKey):Option[(Int, NFAStates, Map[Int, List[Int => Binder => Binder]])] = { 
+  d.get(k) 
+}
+@inline def updateDPT(d:DPatTable)(k:DPKey)(v:(Int, NFAStates, Map[Int, List[Int => Binder => Binder]])):DPatTable = {
+  d.updated(k, v)
+}
+/* minor speed up
+import java.util.HashMap
+type DPatTable = HashMap[Int, (Int, NFAStates, Map[Int, List[Int => Binder => Binder]])]
+type DPKey = Int
+@inline def mhash(p:(Int,Char)):DPKey = p match {
+  case (i,c) => i + c.toInt * 256
+}
+@inline def emptyDPT:DPatTable = new HashMap()
 
-
+@inline def getDPT(d:DPatTable)(k:DPKey):Option[(Int, NFAStates, Map[Int, List[Int => Binder => Binder]])] = { 
+  if (d.containsKey(k)) {
+    Some(d.get(k))
+  } else {
+    None
+  }
+}
+@inline def updateDPT(d:DPatTable)(k:DPKey)(v:(Int, NFAStates, Map[Int, List[Int => Binder => Binder]])):DPatTable = {
+  d.put(k,v)
+  d
+}
+*/
 def mappingp(dictionary:Map[NFAStates, Int])(x:NFAStates) : Int = {
   dictionary.get(x) match {
     case Some(i) => i
@@ -361,12 +400,12 @@ def buildDPatTable(init:Pat):(DPatTable,List[Int]) = {
       val j = mappingp(dictionaryp)(n)
       (i,l,j,n,f)
   })
-  val hash_tablep = ((IntMap():DPatTable) /: listp)( (dictp,iljnf) => iljnf match {
+  val hash_tablep = (emptyDPT /: listp)( (dictp,iljnf) => iljnf match {
     case (i,l,j,n,f) => 
       val k = mhash((i,fst(l)))
-      dictp.get(k) match {
+      getDPT(dictp)(k) match {
 	case Some(ps) => sys.error("buildPdPatTable: found a duplicate key in the pdPatTable, this should not happen.")
-	case None => dictp.updated(k, (j,n,f))
+	case None => updateDPT(dictp)(k)((j,n,f))
       }
   })
   (hash_tablep, sfinals)
@@ -394,10 +433,10 @@ def patMatches(cnt:Int)(dStateTable:DPatTable)(wp:String)(currDfaNfaStateBinders
       case (i,currNfaStateBinders)   => 
 	if (wp.length == 0) { currDfaNfaStateBinders } 
 	else {
-	  val l = wp.toList.head
+	  val l = wp.head /* slow:  val l = wp.toList.head */
 	  val w = wp.substring(1)
 	  val k = mhash((i,l))
-	  dStateTable.get(k) match {
+	  getDPT(dStateTable)(k) match {
 	    case None => (i,List()) // "key missing" which mans some letter exists in wp but not in pattern p
 	    case Some((j,next_nfaStates,fDict)) =>
 	      val binders = computeBinders(currNfaStateBinders)(fDict)(cnt)

@@ -1,6 +1,6 @@
 import scalare.regex.pderiv.PDeriv._;
 
-object Main {
+object ScalaRe {
   def main(args:Array[String]) = {
     val usPat = {
       val pSpace = PVar (-1, List(), PRE(Label(' ')))
@@ -14,6 +14,14 @@ object Main {
     val lines = scala.io.Source.fromFile(args(0), "utf-8").getLines
     while (lines.hasNext) {
       println(compiledGreedyPatMatch(cp)(lines.next()))
+      /*
+      val result = compiledGreedyPatMatch(cp)(lines.next())
+      println(result)
+      result match {
+	case Some(_) => println("matched.")
+	case None    => println("not matched.")
+      }
+      */
     }
   }
 }
