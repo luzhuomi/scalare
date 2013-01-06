@@ -67,7 +67,7 @@
 		</excludes>
 		<archive>
 		  <manifest>
-		    <mainClass>scalare.regex.pderiv.Main</mainClass>
+		    <!-- <mainClass>scalare.regex.pderiv.Main</mainClass> -->
 		  </manifest>
 		</archive>
 	      </configuration>

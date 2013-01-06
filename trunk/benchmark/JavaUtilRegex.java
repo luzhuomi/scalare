@@ -19,7 +19,13 @@ public class JavaUtilRegex {
 		    Matcher matcher = pattern.matcher(strLine);
 		    // Matcher matcher = pattern.matcher("Mountain View CA 90410");
 		    if (matcher.find()) {
-			System.out.println(matcher.group());
+			int count = matcher.groupCount();
+			String s  = "";
+			for (int i = 1; i <= count; i++) {
+			    s += "(" + i + ":" + matcher.group(i) +")"; 
+			}
+			// System.out.println(matcher.group());
+			System.out.println(s);
 			// System.out.println("matched");
 		    } else {
 			System.out.println("not matched.");

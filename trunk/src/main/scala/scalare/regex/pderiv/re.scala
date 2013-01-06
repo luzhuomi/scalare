@@ -159,7 +159,7 @@ def nub2[A,B](pfs:List[(A,B)]) : List[(A,B)] = {
 }
 
 // todo  : try mutable Map
-def updateByIndex(x:Int)(pos:Int)(b:Binder) : Binder = b match {
+@inline def updateByIndex(x:Int)(pos:Int)(b:Binder) : Binder = b match {
   
   case Binder(m) => 
     val r = m.get(x) match {
@@ -412,14 +412,14 @@ def buildDPatTable(init:Pat):(DPatTable,List[Int]) = {
 }
 
 
-def computeBinders(currNfaStateBinders:List[(Int,Binder)])(fDict:Map[Int,List[Int=>Binder=>Binder]])(cnt:Int):List[Binder] = {
-  def k(a:List[Binder])(imb:(Int,Binder)):List[Binder] = imb match {
+@inline def computeBinders(currNfaStateBinders:List[(Int,Binder)])(fDict:Map[Int,List[Int=>Binder=>Binder]])(cnt:Int):List[Binder] = {
+  @inline def k(a:List[Binder])(imb:(Int,Binder)):List[Binder] = imb match {
     case (m,b) => fDict.get(m) match {
       case None => a
       case Some(gs) => a ++ (gs.map(g => g(cnt)(b)))
     }
   }
-  def cm(bs:List[(Int,Binder)]):List[Binder] = ((List():List[Binder]) /: bs)((x,y) => k(x)(y))
+  @inline def cm(bs:List[(Int,Binder)]):List[Binder] = ((List():List[Binder]) /: bs)((x,y) => k(x)(y))
   cm(currNfaStateBinders)
 }
 
@@ -568,7 +568,6 @@ def repeatPair(r:RE)(n:Int):RE = n match {
   case _ => Pair(r,(repeatPair(r)(n-1)))
 }
 
-
 val usPat = {
   val pSpace = PVar (-1, List(), PRE(Label(' ')))
   val p1 = PVar (1,List(), PRE(Star(dot)))
@@ -582,7 +581,7 @@ val s = "Mountain View CA 90410"
 
 }
 
-
+/*
 object Main {
   import PDeriv._
   def main(args:Array[String]) = {
@@ -598,3 +597,4 @@ object Main {
     }
   }
 }
+*/

@@ -11,6 +11,7 @@ object ScalaRe {
       PPair(p1,PPair(pSpace,PPair(p2,PPair(pSpace, PPair(p3,p4)))))
     }
     val cp = compilePat(usPat)
+    val _ = readLine()
     val lines = scala.io.Source.fromFile(args(0), "utf-8").getLines
     while (lines.hasNext) {
       println(compiledGreedyPatMatch(cp)(lines.next()))
