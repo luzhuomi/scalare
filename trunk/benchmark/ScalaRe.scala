@@ -3,7 +3,7 @@ import scalare.regex.pderiv.PDeriv._;
 object ScalaRe {
   def main(args:Array[String]) = {
     val usPat = {
-      val pSpace = PVar (-1, List(), PRE(Label(' ')))
+      val pSpace = PVar (0, List(), PRE(Label(' ')))
       val p1 = PVar (1,List(), PRE(Star(dot)))
       val p2 = PVar (2,List(), PRE(Pair(char,char)))
       val p3 = PVar (3,List(), PRE(repeatPair(digit)(5)))
@@ -11,7 +11,8 @@ object ScalaRe {
       PPair(p1,PPair(pSpace,PPair(p2,PPair(pSpace, PPair(p3,p4)))))
     }
     val cp = compilePat(usPat)
-    val _ = readLine()
+    // val _ = readLine()
+    // val b = System.currentTimeMillis
     val lines = scala.io.Source.fromFile(args(0), "utf-8").getLines
     while (lines.hasNext) {
       println(compiledGreedyPatMatch(cp)(lines.next()))
@@ -24,5 +25,7 @@ object ScalaRe {
       }
       */
     }
+    // val e = System.currentTimeMillis
+    // println(e-b)
   }
 }

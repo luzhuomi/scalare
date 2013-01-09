@@ -141,7 +141,11 @@ def pdPat(l:(Char,Int)) (p:Pat) : List[Pat] = l match {
     }
 } 
 
-case class Binder(m:IntMap[List[(Int,Int)]]) 
+// original data type IntMap Binder
+// case class Binder(m:IntMap[List[(Int,Int)]]) 
+
+// optimization
+case class Binder(m:Array[List[(Int,Int)]]) 
 
 
 def fst[A,B](p:(A,B)):A = p match {
@@ -158,9 +162,8 @@ def nub2[A,B](pfs:List[(A,B)]) : List[(A,B)] = {
   l
 }
 
-// todo  : try mutable Map
+/* For IntMap Binder
 @inline def updateByIndex(x:Int)(pos:Int)(b:Binder) : Binder = b match {
-  
   case Binder(m) => 
     val r = m.get(x) match {
       case None => List( (pos,pos) )
@@ -175,10 +178,44 @@ def nub2[A,B](pfs:List[(A,B)]) : List[(A,B)] = {
     }
     val n = m.updated(x,r)
     Binder(n) 
-    // m.put(x,r)
-    // Binder(m)
 } 
+*/
 
+@inline def updateByIndex(x:Int)(pos:Int)(b:Binder) : Binder = b match {
+  case Binder(n) => 
+    val m = n.clone
+    val m_bound = m.size
+    val r = { 
+      val l = m(x)
+      l match {
+	case (b,e)::rs => 
+	  if (pos == (e + 1)) (b,pos)::rs
+	  else (if (pos > (e + 1)) (pos,pos)::l 
+		else sys.error("updateByIndex: this is not possible.")) 
+        case Nil =>
+	  (pos,pos)::l
+      }
+
+      /*
+      if ((x < 0) || (x >= m_bound)) // this should be pre-compiled away.
+	List( (pos,pos) ) 
+      else { 
+	val l = m(x)
+	l match {
+	  case (b,e)::rs => 
+	    if (pos == (e + 1)) (b,pos)::rs
+	    else (if (pos > (e + 1)) (pos,pos)::l 
+		  else sys.error("updateByIndex: this is not possible.")) 
+	  case Nil =>
+	    (pos,pos)::l
+	}
+      }
+      */
+    }
+    //Binder(m.updated(x,r)) this is slow
+    m(x) = r
+    Binder(m) 
+} 
 
 def pdPat0(l:(Char,Int)) (p:Pat) : List[(Pat,Int => Binder => Binder)] = l match {
   case (c,idx) => 
@@ -322,7 +359,8 @@ type DPKey = Int
   d.put(k,v)
   d
 }
-*/
+* */
+
 def mappingp(dictionary:Map[NFAStates, Int])(x:NFAStates) : Int = {
   dictionary.get(x) match {
     case Some(i) => i
@@ -451,8 +489,9 @@ def patMatches(cnt:Int)(dStateTable:DPatTable)(wp:String)(currDfaNfaStateBinders
 
 type Range = (Int,Int)
 
-type Env = List[(Int,String)]
+type Env = Vector[(Int,String)]
 
+/* IntMap Binder
 def collectPatMatchFromBinder(w:String)(b:Binder):Env = {
   def listify(b:Binder):List[(Int,List[Range])] = b match {
     case Binder(m) => 
@@ -467,7 +506,47 @@ def collectPatMatchFromBinder(w:String)(b:Binder):Env = {
   }
   collectPatMatchFromBinderp(w)(listify(b))
 }
+*/
 
+// type Env = Array[String]
+
+def collectPatMatchFromBinder(w:String)(b:Binder):Env = {
+  def getArray(b:Binder):Array[List[Range]] = b match {
+    case Binder(m) => 
+      // println(m(1))
+      m
+  }
+  def collectPatMatchFromBinderp(w:String)(xs:Array[List[Range]]):Env = {
+    var k = 0
+    var env:Env = Vector() // List()
+    val count = xs.size
+    while (k < count) {
+      val v = xs(k)
+      v match {
+	case Nil => env = env :+ ((k,""))
+	case rs  => env = env :+ ((k,  ("" /: rs.reverse.map(r => rg_collect(w)(r)))((x,y) => x ++ y)) )
+      }
+      k = k + 1
+    }
+    // println(xs(1))
+    // println(env)
+    env
+  }
+  collectPatMatchFromBinderp(w)(getArray(b))
+}
+
+/* IntMap Binder
+def toBinder(p:Pat):Binder = {
+  def toBinderList(p:Pat):List[(Int,List[Range])] = p match {
+    case PVar(i,rs,p) => List((i,rs)) ++ toBinderList(p)
+    case PPair(p1,p2) => toBinderList(p1) ++ toBinderList(p2)
+    case PStar(p1)    => toBinderList(p1)
+    case PRE(r)       => List()
+    case PChoice(p1,p2) => toBinderList(p1) ++ toBinderList(p2)
+  }
+  Binder(IntMap(toBinderList(p).map( xy => xy match { case (x,y) => x -> y }): _*))
+}
+*/
 
 def toBinder(p:Pat):Binder = {
   def toBinderList(p:Pat):List[(Int,List[Range])] = p match {
@@ -477,9 +556,10 @@ def toBinder(p:Pat):Binder = {
     case PRE(r)       => List()
     case PChoice(p1,p2) => toBinderList(p1) ++ toBinderList(p2)
   }
-  // Binder(Map() ++ toBinderList(p).toMap)
-  Binder(IntMap(toBinderList(p).map( xy => xy match { case (x,y) => x -> y }): _*))
+  val l = toBinderList(p).sortWith( (x,y) => fst(x) < fst(y)).map( xy => xy match { case (x,y) => y })
+  Binder(l.toArray)
 }
+
 
 def patMatch(p:Pat)(w:String):List[Env] = {
   val (dStateTable,sfinal) = buildDPatTable(p)
@@ -514,7 +594,7 @@ val p = {
 }
 
 
-// Copmilation
+// Compilation
 
 def compilePat(p:Pat):(DPatTable,List[Int],Binder) = {
   val (dStateTable,sfinal) = buildDPatTable(p)
@@ -569,7 +649,7 @@ def repeatPair(r:RE)(n:Int):RE = n match {
 }
 
 val usPat = {
-  val pSpace = PVar (-1, List(), PRE(Label(' ')))
+  val pSpace = PVar (0, List(), PRE(Label(' ')))
   val p1 = PVar (1,List(), PRE(Star(dot)))
   val p2 = PVar (2,List(), PRE(Pair(char,char)))
   val p3 = PVar (3,List(), PRE(repeatPair(digit)(5)))
